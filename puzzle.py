@@ -85,18 +85,19 @@ class EdgeLine:
     Сусідні сегменти стикуються з неперервною дотичною.
     """
 
-    def __init__(self, rng: np.random.Generator, tab: float, jitter: float, samples: int):
+    def __init__(self, rng: np.random.Generator, tab: float, jitter: float, samples: int, alternate: bool = False):
         self.rng = rng
         self.t = tab / 2.0
         self.j = jitter
         self.samples = samples
+        self.alternate = alternate  # замки строго по черзі: назовні, всередину, назовні…
         self.flip = False
         self.e = rng.uniform(-jitter, jitter) if jitter else 0.0
         self._next()
 
     def _next(self):
         old = self.flip
-        self.flip = bool(self.rng.random() > 0.5)
+        self.flip = (not old) if self.alternate else bool(self.rng.random() > 0.5)
         self.a = -self.e if self.flip == old else self.e
         j = self.j
         self.b, self.c, self.d, self.e = (self.rng.uniform(-j, j, 4) if j else np.zeros(4))
@@ -142,35 +143,47 @@ def jigsaw_polygons(
     jitter: float = 0.04,
     seed: int = 1,
     samples: int = 14,
+    tabs_x: int = 1,
+    tabs_y: int = 1,
+    alternate: bool = False,
+    square: bool = False,
 ) -> dict[tuple[int, int], np.ndarray]:
     """Контури деталей (проти годинникової стрілки) без зазору.
 
     Ключ — (рядок, стовпець); рядок 0 — нижній (вісь Y спрямована вгору).
+    `tabs_x`/`tabs_y` — скільки замків на одному ребрі клітинки вздовж X і Y.
+    `square` — замок має пропорції свого відрізка шва, а не всієї клітинки: так довгий
+    шов рамки отримує ряд нормальних замків, а не один дрібний чи розтягнутий.
     """
     rng = np.random.default_rng(seed)
     cw, ch = width / cols, height / rows
 
+    def edge(line: EdgeLine | None, n: int) -> np.ndarray:
+        """Ребро клітинки в одиничних координатах (уздовж 0..1, упоперек у частках відрізка)."""
+        if line is None:
+            return np.array([(0.0, 0.0), (1.0, 0.0)])
+        parts = []
+        for q in range(n):
+            u = line.segment()
+            part = np.column_stack([(q + u[:, 0]) / n, u[:, 1] / n])
+            parts.append(part if q == n - 1 else part[:-1])
+        return np.vstack(parts)
+
     # Горизонтальні лінії y = k*ch: сегмент i іде зліва направо.
     hseg: dict[tuple[int, int], np.ndarray] = {}
     for k in range(rows + 1):
-        line = EdgeLine(rng, tab, jitter, samples) if 0 < k < rows else None
+        line = EdgeLine(rng, tab, jitter, samples, alternate) if 0 < k < rows else None
         for i in range(cols):
-            if line is None:
-                u = np.array([(0.0, 0.0), (1.0, 0.0)])
-            else:
-                u = line.segment()
-            hseg[(k, i)] = np.column_stack([(i + u[:, 0]) * cw, k * ch + u[:, 1] * ch])
+            u = edge(line, tabs_x)
+            hseg[(k, i)] = np.column_stack([(i + u[:, 0]) * cw, k * ch + u[:, 1] * (cw if square else ch)])
 
     # Вертикальні лінії x = i*cw: сегмент k іде знизу вгору.
     vseg: dict[tuple[int, int], np.ndarray] = {}
     for i in range(cols + 1):
-        line = EdgeLine(rng, tab, jitter, samples) if 0 < i < cols else None
+        line = EdgeLine(rng, tab, jitter, samples, alternate) if 0 < i < cols else None
         for k in range(rows):
-            if line is None:
-                u = np.array([(0.0, 0.0), (1.0, 0.0)])
-            else:
-                u = line.segment()
-            vseg[(i, k)] = np.column_stack([i * cw + u[:, 1] * cw, (k + u[:, 0]) * ch])
+            u = edge(line, tabs_y)
+            vseg[(i, k)] = np.column_stack([i * cw + u[:, 1] * (ch if square else cw), (k + u[:, 0]) * ch])
 
     polys = {}
     for k in range(rows):
@@ -379,12 +392,17 @@ def make_tray(width: float, height: float, o: Options) -> list[Part]:
     inner = CrossSection.square([inner_w, inner_h]).translate([rim, rim])
     tray = outer.extrude(floor + rim_height) - inner.extrude(rim_height + 1.0).translate([0, 0, floor])
 
-    tab = 0.1  # замки секцій: менші за пазлові
-    grow = 1.0 + 1.5 * tab  # виступ замка збільшує габарит секції
+    # Шви секцій: ряд замків, як у самому пазлі, але приблизно вдвічі більших.
+    tab = 0.26
+    pitch = max(40.0, 2.0 * o.piece)  # орієнтовна відстань між замками, мм
+    reach = 0.45 * pitch  # наскільки щонайбільше замок виступає за шов
+
+    def tabs(length: float) -> int:
+        return max(1, math.ceil(length / (1.15 * pitch)))
 
     def split(size: float) -> int:
         n = 1
-        while size / n * (grow if n > 1 else 1.0) > o.usable:
+        while n == 1 and size > o.usable or n > 1 and size / n + (2 if n > 2 else 1) * reach > o.usable:
             n += 1
         return n
 
@@ -394,7 +412,10 @@ def make_tray(width: float, height: float, o: Options) -> list[Part]:
         outline = np.asarray(outer.to_polygons()[0]) - shift
         return [manifold_to_part("tray", tray.translate([-shift[0], -shift[1], 0]), outline)]
 
-    polys = jigsaw_polygons(outer_w, outer_h, nx, ny, tab=tab, jitter=0.0, seed=o.seed + 1000, samples=20)
+    polys = jigsaw_polygons(
+        outer_w, outer_h, nx, ny, tab=tab, jitter=0.0, seed=o.seed + 1000, samples=20, alternate=True, square=True,
+        tabs_x=tabs(outer_w / nx), tabs_y=tabs(outer_h / ny),
+    )
     parts = []
     for (k, i), poly in polys.items():
         cs = CrossSection([poly]).offset(-0.08, JoinType.Round, circular_segments=24)

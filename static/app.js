@@ -35,7 +35,7 @@ const T = {
 
     'f.texture': 'Фактура поверхні',
     'f.detail': 'Чіткість деталей',
-    'f.flatten': 'Вирівняти великі перепади',
+    'f.flatten': 'Барельєф: сплющити об’єм',
     'f.floor': 'Рівне тло',
     'f.puff': 'Опуклість',
     'f.width': 'Ширина пазла',
@@ -79,7 +79,7 @@ const T = {
     'busy.fit': 'Створюю тест посадки.',
     'done.relief': 'Рельєф готовий. Налаштуйте пазл і створіть файли.',
     'done.updated': 'Рельєф оновлено.',
-    'done.example': 'Це приклад: барельєф бізона. Налаштуйте пазл і створіть файли.',
+    'done.example': 'Це приклад: соняшник. Налаштуйте пазл і створіть файли.',
     'done.make': 'Файли створено.',
     'done.fit': 'Тест посадки створено.',
     'err.server': 'Застосунок не відповідає. Закрийте вікно й відкрийте його знову.',
@@ -144,7 +144,7 @@ const T = {
 
     'f.texture': 'Surface texture',
     'f.detail': 'Detail sharpness',
-    'f.flatten': 'Flatten large steps',
+    'f.flatten': 'Bas-relief: flatten the volume',
     'f.floor': 'Flat background',
     'f.puff': 'Fullness',
     'f.width': 'Puzzle width',
@@ -188,7 +188,7 @@ const T = {
     'busy.fit': 'Creating the fit test.',
     'done.relief': 'The relief is ready. Adjust the puzzle and create the files.',
     'done.updated': 'Relief updated.',
-    'done.example': 'This is the example: a bison bas-relief. Adjust the puzzle and create the files.',
+    'done.example': 'This is the example: a sunflower. Adjust the puzzle and create the files.',
     'done.make': 'Files created.',
     'done.fit': 'Fit test created.',
     'err.server': 'The app is not responding. Close the window and open it again.',
@@ -292,7 +292,7 @@ class Stage {
     this.camera = new THREE.PerspectiveCamera(30, 1, 1, 8000);
     this.camera.up.set(0, 0, 1);
     this.target = new THREE.Vector3(0, 0, 2);
-    this.view = { theta: -0.3, phi: 0.74, dist: 420 };
+    this.view = { theta: -0.2, phi: 0.56, dist: 420 };
 
     const sky = new THREE.HemisphereLight(0xffffff, 0x8f959d, 0.62);
     sky.position.set(0, 0, 1);
@@ -379,7 +379,7 @@ class Stage {
   }
 
   setView(name) {
-    Object.assign(this.view, name === 'top' ? { theta: 0, phi: 0.001 } : { theta: -0.3, phi: 0.74 });
+    Object.assign(this.view, name === 'top' ? { theta: 0, phi: 0.001 } : { theta: -0.2, phi: 0.56 });
     this.fit();
   }
 
@@ -539,7 +539,7 @@ class Stage {
 const FIELDS = {
   texture:   { group: 'shape', min: 0, max: 2, step: 0.05, value: 0.5, kinds: ['photo'] },
   detail:    { group: 'shape', min: 0, max: 1.5, step: 0.05, value: 0.6, kinds: ['photo'] },
-  flatten:   { group: 'shape', min: 0, max: 1, step: 0.05, value: 0, kinds: ['photo'] },
+  flatten:   { group: 'shape', min: 0, max: 1, step: 0.05, value: 0.6, kinds: ['photo'] },
   floor:     { group: 'shape', min: 0, max: 0.8, step: 0.01, value: 0, kinds: ['photo', 'heightmap', 'mesh'] },
   puff:      { group: 'shape', min: -1, max: 1, step: 0.05, value: 0, kinds: ['photo', 'heightmap', 'mesh'] },
 

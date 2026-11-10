@@ -16,6 +16,7 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageOps
 from scipy import ndimage
+from scipy.fft import dctn, idctn
 
 from i18n import _
 
@@ -92,20 +93,51 @@ def fuse(coarse: np.ndarray, fine: np.ndarray, sigma: float) -> np.ndarray:
     return ndimage.gaussian_filter(coarse, sigma) + fine - ndimage.gaussian_filter(fine, sigma)
 
 
-def shape_relief(depth: np.ndarray, *, floor: float, gamma: float, detail: float, detail_radius: float, flatten: float,
-                 texture: float = 0.0, gray: np.ndarray | None = None) -> np.ndarray:
-    lo, hi = np.percentile(depth, [0.5, 99.8])
-    h = np.clip((depth - lo) / max(hi - lo, 1e-9), 0.0, 1.0)
+def _norm(a: np.ndarray, lo: float = 0.5, hi: float = 99.8) -> np.ndarray:
+    p, q = np.percentile(a, [lo, hi])
+    return np.clip((a - p) / max(q - p, 1e-9), 0.0, 1.0)
+
+
+def _poisson(gx: np.ndarray, gy: np.ndarray) -> np.ndarray:
+    """Поверхня за полем нахилів (розв'язок рівняння Пуассона, краї вільні)."""
+    h, w = gy.shape[0] + 1, gx.shape[1] + 1
+    div = np.zeros((h, w))
+    div[:, :-1] += gx
+    div[:, 1:] -= gx
+    div[:-1, :] += gy
+    div[1:, :] -= gy
+    lam = (2 * np.cos(np.pi * np.arange(h) / h) - 2)[:, None] + (2 * np.cos(np.pi * np.arange(w) / w) - 2)[None, :]
+    lam[0, 0] = 1.0
+    f = dctn(div, type=2, norm="ortho") / lam
+    f[0, 0] = 0.0
+    return idctn(f, type=2, norm="ortho")
+
+
+def bas_relief(depth: np.ndarray, flatten: float) -> np.ndarray:
+    """Глибина -> барельєф 0..1.
+
+    Справжня глибина сцени погано лягає в кілька міліметрів: майже весь запас висоти
+    з'їдає перепад «предмет — тло», а на форму самого предмета нічого не лишається.
+    Тому круті перепади послаблюються, пологі лишаються як є, і поверхня збирається
+    назад із нахилів. Так роблять класичні барельєфи: об'єм сплющено, деталі збережено.
+    """
+    d = _norm(depth)
+    if flatten <= 0:
+        return d
+    beta = 1.0 - 0.65 * min(flatten, 1.0)
+    gx, gy = np.diff(d, axis=1), np.diff(d, axis=0)
+    cy, cx = np.gradient(ndimage.gaussian_filter(d, 1.5))
+    steep = np.hypot(cx, cy)
+    ref = max(float(np.percentile(steep, 75)), 1e-6)
+    keep = np.minimum(1.0, (np.maximum(steep, 1e-9) / ref) ** (beta - 1.0))
+    return _norm(_poisson(gx * (keep[:, 1:] + keep[:, :-1]) / 2, gy * (keep[1:, :] + keep[:-1, :]) / 2))
+
+
+def shape_relief(depth: np.ndarray | None, *, floor: float, gamma: float, detail: float, detail_radius: float, flatten: float,
+                 texture: float = 0.0, gray: np.ndarray | None = None, base: np.ndarray | None = None) -> np.ndarray:
+    """`base` — готовий результат bas_relief (щоб не рахувати його щоразу, коли рухають інший повзунок)."""
+    h = bas_relief(depth, flatten) if base is None else base
     size = max(h.shape)
-
-    if flatten > 0:
-        # Стискаємо великі перепади (об'єкт проти тла), лишаючи місцеву форму:
-        # так рельєф виходить «барельєфним», а не «надутим».
-        base = ndimage.gaussian_filter(h, size * 0.08)
-        h = h - flatten * base
-        lo, hi = np.percentile(h, [0.5, 99.8])
-        h = np.clip((h - lo) / max(hi - lo, 1e-9), 0.0, 1.0)
-
     if floor > 0:
         h = np.clip((h - floor) / (1.0 - floor), 0.0, 1.0)
     if gamma != 1.0:
@@ -169,7 +201,7 @@ def main():
     ap.add_argument("--model", choices=MODELS, default="large", help=_("large — найкраща якість; small — для комерційного використання"))
     ap.add_argument("--res", type=int, default=1036, help=_("роздільність детального проходу (коротка сторона, px)"))
     ap.add_argument("--no-fuse", action="store_true", help=_("лише один прохід, без злиття грубого й детального"))
-    ap.add_argument("--flatten", type=float, default=0.0, help=_("0..1: стиснути великі перепади глибини (барельєфний ефект)"))
+    ap.add_argument("--flatten", type=float, default=0.6, help=_("0..1: стиснути великі перепади глибини (барельєфний ефект)"))
     ap.add_argument("--floor", type=float, default=0.0, help=_("0..1: усе, що нижче, стає плоским тлом"))
     ap.add_argument("--gamma", type=float, default=1.0, help=_("<1 піднімає середні висоти, >1 притискає"))
     ap.add_argument("--detail", type=float, default=0.6, help=_("підсилення дрібних деталей"))

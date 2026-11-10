@@ -39,7 +39,7 @@ from puzzle import Options, Relief, generate, generate_fit_test, grid_for, load_
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 OUT_ROOT = ROOT / "out"
-EXAMPLE = ROOT / "examples" / "bison_height.png"
+EXAMPLE = ROOT / "examples" / "sunflower_height.png"
 LOG = Path.home() / "Library" / "Logs" / "relief-puzzle.log"
 
 REPO = "MykhailoKibkalo/relief-puzzle"
@@ -94,6 +94,7 @@ class Session:
         self.raw = np.zeros((300, 400))
         self.height = self.raw
         self.suggest = None
+        self.base = None  # (ключ, барельєф): кеш найповільнішого кроку
 
     # -- джерело ---------------------------------------------------------------
 
@@ -101,6 +102,7 @@ class Session:
         ext = path.suffix.lower()
         self.depth = self.gray = None
         self.suggest = None
+        self.base = None
         if ext in MESH_EXT:
             from mesh2height import mesh_to_height
 
@@ -142,15 +144,19 @@ class Session:
         floor = _num(p, "floor", 0.0, 0.0, 0.9)
         gamma = _num(p, "gamma", 1.0, 0.2, 5.0)
         if self.kind == "photo":
-            from heightmap import shape_relief
+            from heightmap import bas_relief, shape_relief
 
+            flatten = _num(p, "flatten", 0.6, 0.0, 1.0)
+            if self.base is None or self.base[0] != (invert, flatten):
+                self.base = ((invert, flatten), bas_relief(-self.depth if invert else self.depth, flatten))
             h = shape_relief(
-                -self.depth if invert else self.depth,
+                None,
+                base=self.base[1],
                 floor=floor,
                 gamma=gamma,
                 detail=_num(p, "detail", 0.6, 0.0, 3.0),
                 detail_radius=0.006,
-                flatten=_num(p, "flatten", 0.0, 0.0, 1.0),
+                flatten=flatten,
                 texture=_num(p, "texture", 0.5, 0.0, 3.0),
                 gray=self.gray,
             )
@@ -400,7 +406,7 @@ class Handler(BaseHTTPRequestHandler):
         return self._source_info()
 
     def api_example(self, query, body):
-        SESSION.load(EXAMPLE, "bison.png", "heightmap")
+        SESSION.load(EXAMPLE, "sunflower.png", "heightmap")
         return self._source_info()
 
     def api_kind(self, query, body):
