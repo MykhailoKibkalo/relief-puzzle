@@ -1,0 +1,18 @@
+[project]
+name = "relief-puzzle"
+version = "0.1.0"
+description = "Turn a picture or a 3D model into a 3D-printable relief jigsaw puzzle"
+readme = "README.md"
+license = "MIT"
+requires-python = ">=3.11,<3.13"
+dependencies = [
+    "numpy",
+    "pillow",
+    "scipy",
+    "manifold3d>=3.2",
+    "matplotlib",
+    "torch>=2.4",
+    "transformers>=4.45",
+    "trimesh>=5.2.0",
+    "pywebview>=6.2.1",
+]

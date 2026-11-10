@@ -1,0 +1,167 @@
+<!doctype html>
+<html lang="uk">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Relief Puzzle</title>
+<link rel="stylesheet" href="/static/app.css">
+</head>
+<body>
+<div class="app">
+
+  <aside class="panel">
+    <header class="head">
+      <h1 data-i18n="app.title"></h1>
+      <button type="button" class="btn menu-btn" id="menu-btn" aria-haspopup="dialog">
+        <svg viewBox="0 0 16 16" width="14" height="14" aria-hidden="true"><path d="M2 4h12M2 8h12M2 12h12" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        <span data-i18n="menu.title"></span>
+      </button>
+    </header>
+
+    <section class="group">
+      <h2 data-i18n="src.title"></h2>
+      <div class="source" id="source">
+        <p class="source-name" id="source-name"></p>
+        <div class="source-actions">
+          <button type="button" class="btn" id="pick" data-i18n="src.pick"></button>
+          <button type="button" class="btn-link" id="example" data-i18n="src.example" hidden></button>
+        </div>
+        <input type="file" id="file" hidden
+               accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,.bmp,.stl,.obj,.ply,.glb,.gltf,.off">
+      </div>
+      <div class="seg" id="kind" role="radiogroup" data-i18n-aria="kind.aria" hidden>
+        <label><input type="radio" name="kind" value="photo"><span data-i18n="kind.photo"></span></label>
+        <label><input type="radio" name="kind" value="heightmap"><span data-i18n="kind.heightmap"></span></label>
+      </div>
+      <p class="hint" id="kind-hint" hidden></p>
+    </section>
+
+    <section class="group" id="shape-group" hidden>
+      <h2 data-i18n="shape.title"></h2>
+      <div data-fields="shape"></div>
+      <label class="check"><input type="checkbox" id="invert"><span data-i18n="shape.invert"></span></label>
+    </section>
+
+    <section class="group">
+      <h2 data-i18n="puzzle.title"></h2>
+      <div data-fields="puzzle"></div>
+      <p class="hint"><span data-i18n="fit.hint"></span>
+        <button type="button" class="btn-link" id="fit" data-i18n="fit.make"></button></p>
+      <label class="check"><input type="checkbox" id="tray" checked><span data-i18n="tray"></span></label>
+      <button type="button" class="btn" id="reseed" data-i18n="reseed"></button>
+
+      <details class="more">
+        <summary data-i18n="more"></summary>
+        <div data-fields="more"></div>
+      </details>
+    </section>
+
+    <div class="footer">
+      <button type="button" class="btn-primary" id="make" data-i18n="make" disabled></button>
+      <p class="status" id="status" role="status" aria-live="polite"></p>
+    </div>
+  </aside>
+
+  <main class="stage" id="stage">
+    <div class="viewport" id="viewport">
+      <canvas id="view" data-i18n-aria="canvas.aria"></canvas>
+
+      <div class="invite" id="invite">
+        <p class="invite-text" data-i18n="invite.text"></p>
+        <p class="invite-sub" data-i18n="invite.sub"></p>
+      </div>
+
+      <div class="seg views" role="radiogroup" data-i18n-aria="cam.aria">
+        <label><input type="radio" name="cam" value="tilt" checked><span data-i18n="cam.tilt"></span></label>
+        <label><input type="radio" name="cam" value="top"><span data-i18n="cam.top"></span></label>
+      </div>
+      <p class="readout" id="readout"></p>
+      <div class="dropping" id="dropping" data-i18n="drop" hidden></div>
+    </div>
+
+    <section class="results" id="results" hidden data-i18n-aria="results.aria">
+      <div class="results-head">
+        <p class="results-title" id="results-title"></p>
+        <button type="button" class="btn" id="reveal" data-i18n="reveal"></button>
+      </div>
+      <p class="hint" id="results-note" hidden></p>
+      <div class="plates" id="plates"></div>
+    </section>
+  </main>
+
+</div>
+
+<dialog class="menu" id="menu" aria-labelledby="menu-title">
+  <div class="menu-head">
+    <h2 id="menu-title" data-i18n="menu.title"></h2>
+    <button type="button" class="btn" id="menu-close" data-i18n="close"></button>
+  </div>
+  <div class="seg menu-tabs" role="radiogroup" data-i18n-aria="menu.title">
+    <label><input type="radio" name="tab" value="settings" checked><span data-i18n="tab.settings"></span></label>
+    <label><input type="radio" name="tab" value="about"><span data-i18n="tab.about"></span></label>
+    <label><input type="radio" name="tab" value="updates"><span data-i18n="tab.updates"></span></label>
+  </div>
+
+  <section class="menu-body" data-tab="settings">
+    <div class="set-row">
+      <span class="set-name" id="lang-label" data-i18n="set.lang"></span>
+      <div class="seg" role="radiogroup" aria-labelledby="lang-label">
+        <label><input type="radio" name="lang" value="uk"><span>Українська</span></label>
+        <label><input type="radio" name="lang" value="en"><span>English</span></label>
+      </div>
+    </div>
+
+    <div class="set-row">
+      <label class="set-name" for="bed" data-i18n="set.bed"></label>
+      <span class="value"><input type="number" id="bed" min="100" max="500" step="1"><span data-i18n="unit.mm"></span></span>
+    </div>
+    <p class="hint" data-i18n="set.bed.hint"></p>
+
+    <div class="set-row">
+      <label class="set-name" for="model" data-i18n="set.model"></label>
+      <select id="model">
+        <option value="large" data-i18n="set.model.large"></option>
+        <option value="small" data-i18n="set.model.small"></option>
+      </select>
+    </div>
+    <p class="hint" data-i18n="set.model.hint"></p>
+
+    <div class="set-row">
+      <span class="set-name" data-i18n="set.out"></span>
+      <button type="button" class="btn" id="open-out" data-i18n="reveal"></button>
+    </div>
+    <p class="hint path" id="out-path"></p>
+
+    <div class="set-row" id="log-row" hidden>
+      <span class="set-name" data-i18n="set.log"></span>
+      <button type="button" class="btn" id="open-log" data-i18n="set.log.open"></button>
+    </div>
+  </section>
+
+  <section class="menu-body" data-tab="about" hidden>
+    <p class="about-name" data-i18n="app.title"></p>
+    <p class="about-version" id="about-version"></p>
+    <p class="about-desc" data-i18n="about.desc"></p>
+    <div class="menu-actions">
+      <button type="button" class="btn" data-url="repo" data-i18n="about.github"></button>
+      <button type="button" class="btn" data-url="issues" data-i18n="about.issue"></button>
+    </div>
+    <p class="hint" data-i18n="about.license"></p>
+    <p class="hint" data-i18n="about.credits"></p>
+  </section>
+
+  <section class="menu-body" data-tab="updates" hidden>
+    <p class="about-desc" id="upd-current"></p>
+    <div class="menu-actions">
+      <button type="button" class="btn" id="upd-check" data-i18n="upd.check"></button>
+      <button type="button" class="btn-primary compact" id="upd-install" data-i18n="upd.install" hidden></button>
+      <button type="button" class="btn" id="upd-open" data-url="download" data-i18n="upd.open" hidden></button>
+    </div>
+    <p class="status" id="upd-status" role="status" aria-live="polite"></p>
+  </section>
+</dialog>
+
+<script>window.TOKEN = "__TOKEN__";</script>
+<script type="module" src="/static/app.js"></script>
+</body>
+</html>
