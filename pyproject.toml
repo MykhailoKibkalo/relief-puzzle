@@ -1,6 +1,6 @@
 [project]
 name = "relief-puzzle"
-version = "0.2.0"
+version = "0.3.0"
 description = "Turn a picture or a 3D model into a 3D-printable relief jigsaw puzzle"
 readme = "README.md"
 license = "MIT"

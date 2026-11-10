@@ -241,3 +241,38 @@ select {
 .menu-actions { display: flex; flex-wrap: wrap; gap: 10px; margin: 0 0 16px; }
 .btn-primary.compact { width: auto; padding: 7px 14px; font-size: 15px; }
 #upd-status { min-height: 1.4em; margin: 0; }
+
+/* ---------- галерея прикладів ---------- */
+
+.card {
+  display: block; padding: 0; text-align: left; cursor: pointer;
+  background: none; border: 0; border-radius: 7px;
+}
+.card img {
+  display: block; width: 100%; aspect-ratio: 4 / 3; object-fit: cover;
+  border-radius: 6px;
+  box-shadow: 0 1px 3px rgba(31, 36, 42, .35);
+}
+.card span { display: block; margin-top: 5px; font-size: 13.5px; }
+.card:hover img { box-shadow: 0 0 0 2px var(--frame), 0 1px 3px rgba(31, 36, 42, .35); }
+
+.examples { position: absolute; left: 40px; right: 40px; bottom: 46px; }
+.examples-title { margin: 0 0 8px; font-size: 14px; color: rgba(31, 36, 42, .82); }
+.examples-row { display: flex; gap: 14px; }
+.examples-row .card { width: 118px; flex: none; }
+
+.gallery { width: min(720px, calc(100vw - 32px)); }
+.gallery .hint { margin: 0 0 16px; }
+.gallery-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 18px 16px; }
+.gallery-grid .card span { font-size: 15px; }
+
+.results-actions { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; justify-content: flex-end; }
+.open-all { display: inline-flex; gap: 10px; }
+.open-all .btn { background: var(--frame); color: #fff; border-color: var(--frame); font-weight: 700; }
+.open-all .btn:hover { background: var(--frame-dark); }
+
+@media (max-width: 860px) {
+  .examples { left: 20px; right: 20px; }
+  .examples-row { overflow-x: auto; }
+  .gallery-grid { grid-template-columns: repeat(2, 1fr); }
+}

@@ -27,7 +27,7 @@ import webbrowser
 from dataclasses import asdict, fields
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, unquote, urlparse
+from urllib.parse import parse_qs, quote, unquote, urlparse
 
 import numpy as np
 from PIL import Image
@@ -39,7 +39,12 @@ from puzzle import Options, Relief, generate, generate_fit_test, grid_for, load_
 ROOT = Path(__file__).resolve().parent
 STATIC = ROOT / "static"
 OUT_ROOT = ROOT / "out"
-EXAMPLE = ROOT / "examples" / "sunflower_height.png"
+EXAMPLES = ROOT / "examples"
+try:
+    GALLERY = json.loads((EXAMPLES / "gallery.json").read_text(encoding="utf-8"))
+except (OSError, ValueError):
+    GALLERY = []
+WINDOW = None  # вікно pywebview, якщо застосунок запущено у власному вікні
 LOG = Path.home() / "Library" / "Logs" / "relief-puzzle.log"
 
 REPO = "MykhailoKibkalo/relief-puzzle"
@@ -159,6 +164,7 @@ class Session:
                 flatten=flatten,
                 texture=_num(p, "texture", 0.5, 0.0, 3.0),
                 gray=self.gray,
+                smooth=_num(p, "smooth", 0.0, 0.0, 1.0),
             )
         else:
             h = 1.0 - self.raw if invert else self.raw
@@ -166,6 +172,11 @@ class Session:
                 h = np.clip((h - floor) / (1.0 - floor), 0.0, 1.0)
             if gamma != 1.0:
                 h = h**gamma
+            smooth = _num(p, "smooth", 0.0, 0.0, 1.0)
+            if smooth > 0:
+                from scipy import ndimage
+
+                h = ndimage.gaussian_filter(h, smooth * max(h.shape) * 0.003)
         self.height = h
         return h
 
@@ -238,6 +249,31 @@ def current_settings() -> dict:
     return s
 
 
+def rename_app(lang: str):
+    """Назва застосунку перекладається разом з інтерфейсом: заголовок вікна — одразу, значок — якщо це безпечно."""
+    set_lang(lang)
+    try:
+        if WINDOW is not None:
+            WINDOW.title = _("Рельєфний пазл")
+    except Exception:
+        pass
+    if WINDOW is None:
+        return  # у браузері значок не чіпаємо: перейменовує лише сам застосунок
+    try:
+        import make_app
+
+        wanted = ROOT / f"{make_app.NAMES[lang]}.app"
+        others = [ROOT / f"{n}.app" for n in make_app.NAMES.values() if n != make_app.NAMES[lang]]
+        if wanted.exists() or not any(p.exists() for p in others):
+            return  # значок уже правильний або його тут не збирали
+        dock = subprocess.run(["defaults", "read", "com.apple.dock", "persistent-apps"], capture_output=True, text=True, timeout=5).stdout
+        if any(p.exists() and (p.name in dock or quote(p.name) in dock) for p in others):
+            return  # значок закріплено в Dock: перейменування зламало б закріплення
+        make_app.build(lang)
+    except Exception:
+        traceback.print_exc()
+
+
 SESSION = Session()
 
 
@@ -275,10 +311,11 @@ class Handler(BaseHTTPRequestHandler):
         if path == "/":
             html = (STATIC / "index.html").read_text(encoding="utf-8").replace("__TOKEN__", TOKEN)
             return self._send(200, html.encode(), MIME[".html"])
-        if path.startswith("/static/"):
-            target = (STATIC / path[len("/static/"):]).resolve()
-            if target.is_file() and target.is_relative_to(STATIC):
-                return self._send(200, target.read_bytes(), MIME.get(target.suffix, "application/octet-stream"))
+        for prefix, folder in (("/static/", STATIC), ("/examples/thumbs/", EXAMPLES / "thumbs")):
+            if path.startswith(prefix):
+                target = (folder / path[len(prefix):]).resolve()
+                if target.is_file() and target.is_relative_to(folder):
+                    return self._send(200, target.read_bytes(), MIME.get(target.suffix, "application/octet-stream"))
         self._json({"error": "not found"}, 404)
 
     # -- POST -------------------------------------------------------------------
@@ -315,7 +352,7 @@ class Handler(BaseHTTPRequestHandler):
         return {
             "defaults": asdict(Options()),
             "slicers": [{"id": k, "name": name} for k, (name, path) in SLICERS.items() if path.exists()],
-            "example": EXAMPLE.exists(),
+            "gallery": [{"id": g["id"], "uk": g["uk"], "en": g["en"], "author": g["author"], "thumb": f"/examples/thumbs/{g['id']}.jpg"} for g in GALLERY],
             "source": self._source_info(),  # щоб після перезавантаження сторінки вікно знало, що вже відкрито
             "settings": current_settings(),
             "version": read_version(),
@@ -334,6 +371,8 @@ class Handler(BaseHTTPRequestHandler):
         if "bed" in p:
             changes["bed"] = _num(p, "bed", 180.0, 100.0, 500.0)
         settings.save(changes)
+        if "lang" in changes:
+            rename_app(changes["lang"])
         return current_settings()
 
     def api_open(self, query, body):
@@ -406,7 +445,12 @@ class Handler(BaseHTTPRequestHandler):
         return self._source_info()
 
     def api_example(self, query, body):
-        SESSION.load(EXAMPLE, "sunflower.png", "heightmap")
+        wanted = json.loads(body or b"{}").get("id")
+        entry = next((g for g in GALLERY if g["id"] == wanted), GALLERY[0] if GALLERY else None)
+        path = EXAMPLES / f"{entry['id']}_height.png" if entry else None
+        if path is None or not path.exists():
+            raise UserError(_("Файл не знайдено. Створіть файли ще раз."))
+        SESSION.load(path, f"{entry['id']}.png", "heightmap")
         return self._source_info()
 
     def api_kind(self, query, body):
@@ -465,7 +509,8 @@ def main():
             import webview
             from webview.menu import Menu, MenuAction, MenuSeparator
 
-            window = webview.create_window(_("Рельєфний пазл"), url, width=1360, height=880, min_size=(980, 640), background_color="#C9CCD1")
+            global WINDOW
+            WINDOW = window = webview.create_window(_("Рельєфний пазл"), url, width=1360, height=880, min_size=(980, 640), background_color="#C9CCD1")
 
             def show(tab: str):
                 return lambda: window.evaluate_js(f"window.openMenu && window.openMenu('{tab}')")

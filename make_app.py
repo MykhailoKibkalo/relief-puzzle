@@ -19,12 +19,11 @@ from pathlib import Path
 import numpy as np
 from PIL import Image, ImageDraw, ImageFilter
 
-from i18n import _
+from i18n import _, get_lang
 from puzzle import jigsaw_polygons
 
 ROOT = Path(__file__).resolve().parent
-NAME = _("Рельєфний пазл")  # назва значка залежить від мови застосунку
-APP = ROOT / f"{NAME}.app"
+NAMES = {"uk": "Рельєфний пазл", "en": "Relief Puzzle"}  # значок називається мовою застосунку
 
 LAUNCHER = """#!/bin/bash
 # Запускає вікно «Рельєфного пазла». Згенеровано make_app.py.
@@ -90,10 +89,14 @@ def build_icns(dest: Path):
         subprocess.run(["iconutil", "-c", "icns", str(iconset), "-o", str(dest)], check=True)
 
 
-def main():
-    if APP.exists():
-        shutil.rmtree(APP)
-    macos, resources = APP / "Contents" / "MacOS", APP / "Contents" / "Resources"
+def build(lang: str | None = None) -> Path:
+    """Збирає значок із назвою потрібною мовою і прибирає значок з іншою назвою."""
+    name = NAMES[lang or get_lang()]
+    app = ROOT / f"{name}.app"
+    for other in NAMES.values():
+        if (ROOT / f"{other}.app").exists():
+            shutil.rmtree(ROOT / f"{other}.app")
+    macos, resources = app / "Contents" / "MacOS", app / "Contents" / "Resources"
     macos.mkdir(parents=True)
     resources.mkdir()
 
@@ -101,11 +104,11 @@ def main():
     launcher.write_text(LAUNCHER.replace("__PROJ__", str(ROOT)), encoding="utf-8")
     launcher.chmod(0o755)
     build_icns(resources / "icon.icns")
-    with open(APP / "Contents" / "Info.plist", "wb") as f:
+    with open(app / "Contents" / "Info.plist", "wb") as f:
         plistlib.dump(
             {
-                "CFBundleName": NAME,
-                "CFBundleDisplayName": NAME,
+                "CFBundleName": name,
+                "CFBundleDisplayName": name,
                 "CFBundleIdentifier": "local.relief-puzzle",
                 "CFBundleExecutable": "launcher",
                 "CFBundleIconFile": "icon",
@@ -117,8 +120,12 @@ def main():
             },
             f,
         )
-    subprocess.run(["touch", str(APP)], check=False)  # щоб Finder перечитав іконку
-    print(_("Готово: {path}").format(path=APP))
+    subprocess.run(["touch", str(app)], check=False)  # щоб Finder перечитав іконку
+    return app
+
+
+def main():
+    print(_("Готово: {path}").format(path=build()))
 
 
 if __name__ == "__main__":

@@ -63,6 +63,8 @@ EN = {
     "Деталь {w}×{h} мм не влазить на стіл {bed} мм. Зробіть деталі меншими або стіл більшим.":
         "A {w}×{h} mm part does not fit the {bed} mm bed. Make the pieces smaller or the bed larger.",
     "Плита {n}: {count} шт.": "Plate {n}: {count} pcs",
+    "Деталі {n}": "Pieces {n}",
+    "Рамка {n}": "Frame {n}",
     "карта висот (PNG/TIFF, біле = високо)": "height map (PNG/TIFF, white = high)",
     "тека результату": "output folder",
     "розмір": "size",
@@ -103,6 +105,7 @@ EN = {
     " + {n} з рамкою ({k} секц.)": " + {n} with the frame ({k} sections)",
     "Трикутників: {n} млн": "Triangles: {n} M",
     "Результат: {path}": "Output: {path}",
+    "Усі плити одним проєктом для Bambu Studio: {path}": "All plates as one Bambu Studio project: {path}",
     # --- heightmap.py ---
     "Картинка → карта висот для рельєфу (нейромережа Depth Anything V2).":
         "Picture → height map for a relief (Depth Anything V2 neural network).",
@@ -118,6 +121,7 @@ EN = {
     "0..2: додати мікрофактуру з яскравості картинки (0 = вимкнути)": "0..2: add micro-texture from image brightness (0 = off)",
     "обрізати картинку (частки 0..1), напр. 0.25,0.2,0.72,0.82": "crop the picture (fractions 0..1), e.g. 0.25,0.2,0.72,0.82",
     "інвертувати (далеке стане високим)": "invert (far becomes high)",
+    "0..1: згладити готовий рельєф (прибирає шум, але й дрібні деталі)": "0..1: smooth the finished relief (removes noise, and fine detail with it)",
     "обмеження довшої сторони карти висот, px": "limit for the longer side of the height map, px",
     "Прев'ю:      {path}": "Preview:    {path}",
     # --- mesh2height.py ---

@@ -1,0 +1,14 @@
+[
+ {"id": "sunflower", "uk": "Соняшник", "en": "Sunflower", "author": "Wilfredor",
+  "source": "https://commons.wikimedia.org/wiki/File:Helianthus_annuus_-_Jardin_universitaire_Roger-Van_den_Hende,_Quebec_22.jpg"},
+ {"id": "turtle", "uk": "Морська черепаха", "en": "Sea turtle", "author": "Zygy",
+  "source": "https://commons.wikimedia.org/wiki/File:Chelonia_mydas_176499106.jpg"},
+ {"id": "dahlia", "uk": "Жоржина", "en": "Dahlia", "author": "Gerda Arendt",
+  "source": "https://commons.wikimedia.org/wiki/File:White_dahlia_flower_in_bowl,_Mittelheim.jpg"},
+ {"id": "lion", "uk": "Лев", "en": "Lion", "author": "Jebulon",
+  "source": "https://commons.wikimedia.org/wiki/File:Head_lion_Florence.jpg"},
+ {"id": "rose", "uk": "Рожева квітка", "en": "Pink flower", "author": "Caleb Woods",
+  "source": "https://commons.wikimedia.org/wiki/File:Pink_flower_in_close-up_(Unsplash).jpg"},
+ {"id": "starfish", "uk": "Морська зірка", "en": "Starfish", "author": "Katie Ahlfeld",
+  "source": "https://commons.wikimedia.org/wiki/File:Asterias_rubens_(USNM_E39586)_001.jpeg"}
+]

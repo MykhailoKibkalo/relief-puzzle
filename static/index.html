@@ -24,7 +24,7 @@
         <p class="source-name" id="source-name"></p>
         <div class="source-actions">
           <button type="button" class="btn" id="pick" data-i18n="src.pick"></button>
-          <button type="button" class="btn-link" id="example" data-i18n="src.example" hidden></button>
+          <button type="button" class="btn-link" id="example" data-i18n="src.gallery" hidden></button>
         </div>
         <input type="file" id="file" hidden
                accept=".png,.jpg,.jpeg,.webp,.tif,.tiff,.bmp,.stl,.obj,.ply,.glb,.gltf,.off">
@@ -71,6 +71,11 @@
         <p class="invite-sub" data-i18n="invite.sub"></p>
       </div>
 
+      <div class="examples" id="examples" hidden>
+        <p class="examples-title" data-i18n="gallery.strip"></p>
+        <div class="examples-row" id="examples-row"></div>
+      </div>
+
       <div class="seg views" role="radiogroup" data-i18n-aria="cam.aria">
         <label><input type="radio" name="cam" value="tilt" checked><span data-i18n="cam.tilt"></span></label>
         <label><input type="radio" name="cam" value="top"><span data-i18n="cam.top"></span></label>
@@ -82,7 +87,10 @@
     <section class="results" id="results" hidden data-i18n-aria="results.aria">
       <div class="results-head">
         <p class="results-title" id="results-title"></p>
-        <button type="button" class="btn" id="reveal" data-i18n="reveal"></button>
+        <div class="results-actions">
+          <span class="open-all" id="open-all"></span>
+          <button type="button" class="btn" id="reveal" data-i18n="reveal"></button>
+        </div>
       </div>
       <p class="hint" id="results-note" hidden></p>
       <div class="plates" id="plates"></div>
@@ -159,6 +167,15 @@
     </div>
     <p class="status" id="upd-status" role="status" aria-live="polite"></p>
   </section>
+</dialog>
+
+<dialog class="menu gallery" id="gallery" aria-labelledby="gallery-title">
+  <div class="menu-head">
+    <h2 id="gallery-title" data-i18n="gallery.title"></h2>
+    <button type="button" class="btn" id="gallery-close" data-i18n="close"></button>
+  </div>
+  <p class="hint" data-i18n="gallery.hint"></p>
+  <div class="gallery-grid" id="gallery-grid"></div>
 </dialog>
 
 <script>window.TOKEN = "__TOKEN__";</script>

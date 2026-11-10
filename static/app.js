@@ -15,7 +15,11 @@ const T = {
     'src.title': 'Зображення',
     'src.none': 'Файл ще не обрано',
     'src.pick': 'Обрати файл',
-    'src.example': 'Спробувати на прикладі',
+    'src.gallery': 'Галерея прикладів',
+    'gallery.title': 'Приклади',
+    'gallery.hint': 'Оберіть приклад, щоб одразу побачити пазл. Рельєфи зроблено зі звичайних фото з вільною ліцензією CC0.',
+    'gallery.strip': 'Або почніть із прикладу',
+    'res.all': 'Усі плити в {app}',
     'kind.aria': 'Як читати зображення',
     'kind.photo': 'Картинка',
     'kind.heightmap': 'Карта висот',
@@ -38,6 +42,7 @@ const T = {
     'f.flatten': 'Барельєф: сплющити об’єм',
     'f.floor': 'Рівне тло',
     'f.puff': 'Опуклість',
+    'f.smooth': 'Згладити шум',
     'f.width': 'Ширина пазла',
     'f.piece': 'Розмір деталі',
     'f.relief': 'Висота рельєфу',
@@ -59,7 +64,8 @@ const T = {
     'reveal': 'Показати у Finder',
     'res.title': 'Файли готові: {plates} з деталями',
     'res.title.tray': ' і {n} з рамкою',
-    'res.note': 'Кожна плита — окремий файл. Відкрийте її в слайсері, оберіть профіль друку й надішліть на принтер.',
+    'res.note': 'Відкрийте всі плити одним проєктом або кожну окремо, оберіть профіль друку й надішліть на принтер.',
+    'res.note.single': 'Кожна плита — окремий файл. Відкрийте її в слайсері, оберіть профіль друку й надішліть на принтер.',
     'res.fit.title': 'Тест посадки готовий',
     'res.fit.note': 'П’ять пар деталей із зазорами 0,10, 0,15, 0,20, 0,25 і 0,30 мм. Кількість крапок на деталі — номер пари. Яка пара складається щільно, але без зусилля, той зазор і поставте.',
     'plate.name': 'Плита {n}',
@@ -79,7 +85,7 @@ const T = {
     'busy.fit': 'Створюю тест посадки.',
     'done.relief': 'Рельєф готовий. Налаштуйте пазл і створіть файли.',
     'done.updated': 'Рельєф оновлено.',
-    'done.example': 'Це приклад: соняшник. Налаштуйте пазл і створіть файли.',
+    'done.example': 'Це приклад «{title}». Налаштуйте пазл і створіть файли.',
     'done.make': 'Файли створено.',
     'done.fit': 'Тест посадки створено.',
     'err.server': 'Застосунок не відповідає. Закрийте вікно й відкрийте його знову.',
@@ -124,7 +130,11 @@ const T = {
     'src.title': 'Image',
     'src.none': 'No file chosen yet',
     'src.pick': 'Choose file',
-    'src.example': 'Try the example',
+    'src.gallery': 'Example gallery',
+    'gallery.title': 'Examples',
+    'gallery.hint': 'Pick an example to see the puzzle right away. The reliefs were made from ordinary photos released under CC0.',
+    'gallery.strip': 'Or start with an example',
+    'res.all': 'All plates in {app}',
     'kind.aria': 'How to read the image',
     'kind.photo': 'Picture',
     'kind.heightmap': 'Height map',
@@ -147,6 +157,7 @@ const T = {
     'f.flatten': 'Bas-relief: flatten the volume',
     'f.floor': 'Flat background',
     'f.puff': 'Fullness',
+    'f.smooth': 'Smooth out noise',
     'f.width': 'Puzzle width',
     'f.piece': 'Piece size',
     'f.relief': 'Relief height',
@@ -168,7 +179,8 @@ const T = {
     'reveal': 'Show in Finder',
     'res.title': 'Files ready: {plates} with pieces',
     'res.title.tray': ' and {n} with the frame',
-    'res.note': 'Each plate is a separate file. Open it in your slicer, pick a print profile and send it to the printer.',
+    'res.note': 'Open all plates as one project or each one separately, pick a print profile and send it to the printer.',
+    'res.note.single': 'Each plate is a separate file. Open it in your slicer, pick a print profile and send it to the printer.',
     'res.fit.title': 'Fit test ready',
     'res.fit.note': 'Five pairs of pieces with gaps of 0.10, 0.15, 0.20, 0.25 and 0.30 mm. The number of dots on a piece is the pair number. Use the gap of the pair that goes together snugly without force.',
     'plate.name': 'Plate {n}',
@@ -188,7 +200,7 @@ const T = {
     'busy.fit': 'Creating the fit test.',
     'done.relief': 'The relief is ready. Adjust the puzzle and create the files.',
     'done.updated': 'Relief updated.',
-    'done.example': 'This is the example: a sunflower. Adjust the puzzle and create the files.',
+    'done.example': 'This is the “{title}” example. Adjust the puzzle and create the files.',
     'done.make': 'Files created.',
     'done.fit': 'Fit test created.',
     'err.server': 'The app is not responding. Close the window and open it again.',
@@ -542,6 +554,7 @@ const FIELDS = {
   flatten:   { group: 'shape', min: 0, max: 1, step: 0.05, value: 0.6, kinds: ['photo'] },
   floor:     { group: 'shape', min: 0, max: 0.8, step: 0.01, value: 0, kinds: ['photo', 'heightmap', 'mesh'] },
   puff:      { group: 'shape', min: -1, max: 1, step: 0.05, value: 0, kinds: ['photo', 'heightmap', 'mesh'] },
+  smooth:    { group: 'shape', min: 0, max: 1, step: 0.05, value: 0, kinds: ['photo', 'heightmap', 'mesh'] },
 
   width:     { group: 'puzzle', unit: true, min: 60, max: 600, step: 1, value: 170, on: 'layout' },
   piece:     { group: 'puzzle', unit: true, min: 14, max: 60, step: 1, value: 24, on: 'layout' },
@@ -558,7 +571,7 @@ const values = {};
 let seed = 1;
 let source = { kind: 'blank' };
 let layout = null;
-let config = { slicers: [], version: '', out: '', can_update: false };
+let config = { slicers: [], gallery: [], version: '', out: '', can_update: false };
 let settings = { lang, bed: 180, model: 'large' };
 let lastResult = null;   // { summary, kind: 'puzzle' | 'fit' }
 let lastStatus = null;   // { key, vars, cls } або { text, cls }
@@ -597,7 +610,7 @@ function setValue(key, v) {
 
 const shapeParams = () => ({
   texture: values.texture, detail: values.detail, flatten: values.flatten, floor: values.floor,
-  gamma: 2 ** -values.puff, invert: $('invert').checked,
+  gamma: 2 ** -values.puff, smooth: values.smooth, invert: $('invert').checked,
 });
 const puzzleParams = () => ({
   width: values.width, piece: values.piece, relief: values.relief, base: values.base,
@@ -721,6 +734,7 @@ function applySource(info) {
   const blank = info.kind === 'blank';
   renderSource();
   $('invite').hidden = !blank;
+  $('examples').hidden = !blank || !config.gallery.length;
   $('shape-group').hidden = blank;
   $('kind').hidden = !(info.kind === 'photo' || info.kind === 'heightmap');
   for (const r of document.querySelectorAll('input[name=kind]')) r.checked = r.value === info.kind;
@@ -744,6 +758,34 @@ function loadFile(file) {
     await refreshShape();
     setStatus('done.relief');
   });
+}
+
+function loadExample(item) {
+  if ($('gallery').open) $('gallery').close();
+  return work('busy.example', async () => {
+    applySource(await (await api('example', { json: { id: item.id } })).json());
+    await refreshShape();
+    setStatus('done.example', '', { title: item[lang] });
+  });
+}
+
+function exampleCard(item) {
+  const card = document.createElement('button');
+  card.type = 'button';
+  card.className = 'card';
+  const img = document.createElement('img');
+  img.src = item.thumb;
+  img.alt = '';
+  const name = document.createElement('span');
+  name.textContent = item[lang];
+  card.append(img, name);
+  card.addEventListener('click', () => { if (busy === 0) loadExample(item); });
+  return card;
+}
+
+function renderGallery() {
+  $('examples-row').replaceChildren(...config.gallery.map(exampleCard));
+  $('gallery-grid').replaceChildren(...config.gallery.map(exampleCard));
 }
 
 function reload(payload, busyKey) {
@@ -804,8 +846,17 @@ function renderResults() {
   } else {
     title = t('res.title', { plates: count(s.piece_plates, 'n.plates') });
     if (s.tray_plates) title += t('res.title.tray', { n: s.tray_plates });
-    note = config.slicers.length ? t('res.note') : '';
+    note = !config.slicers.length ? '' : s.project ? t('res.note') : t('res.note.single');
   }
+  // Один проєкт з усіма плитами: є, якщо встановлено Bambu Studio з принтером під цей стіл.
+  $('open-all').replaceChildren(...(s.project ? config.slicers : []).map((slicer) => {
+    const b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'btn';
+    b.textContent = t('res.all', { app: slicer.name });
+    b.addEventListener('click', () => api('open', { json: { path: s.project, app: slicer.id } }).catch(fail));
+    return b;
+  }));
   $('results-title').textContent = title;
   $('results-note').hidden = !note;
   $('results-note').textContent = note;
@@ -917,6 +968,7 @@ function applyI18n() {
   renderStatus();
   renderResults();
   renderMenu();
+  renderGallery();
 }
 
 // ---------------------------------------------------------------------------
@@ -935,11 +987,9 @@ async function start() {
     e.target.value = '';
     if (f) loadFile(f);
   });
-  $('example').addEventListener('click', () => work('busy.example', async () => {
-    applySource(await (await api('example')).json());
-    await refreshShape();
-    setStatus('done.example');
-  }));
+  $('example').addEventListener('click', () => $('gallery').showModal());
+  $('gallery-close').addEventListener('click', () => $('gallery').close());
+  $('gallery').addEventListener('click', (e) => { if (e.target === $('gallery')) $('gallery').close(); });
   for (const r of document.querySelectorAll('input[name=kind]')) {
     r.addEventListener('change', () => reload({ kind: r.value }, r.value === 'photo' ? 'busy.depth' : 'busy.heightmap'));
   }
@@ -995,7 +1045,7 @@ async function start() {
     config = await (await api('config')).json();
     settings = config.settings;
     lang = settings.lang;
-    $('example').hidden = !config.example;
+    $('example').hidden = !config.gallery.length;
     applyI18n();
     applySource(config.source);
     await refreshShape();

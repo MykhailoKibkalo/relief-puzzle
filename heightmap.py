@@ -134,7 +134,7 @@ def bas_relief(depth: np.ndarray, flatten: float) -> np.ndarray:
 
 
 def shape_relief(depth: np.ndarray | None, *, floor: float, gamma: float, detail: float, detail_radius: float, flatten: float,
-                 texture: float = 0.0, gray: np.ndarray | None = None, base: np.ndarray | None = None) -> np.ndarray:
+                 texture: float = 0.0, gray: np.ndarray | None = None, base: np.ndarray | None = None, smooth: float = 0.0) -> np.ndarray:
     """`base` — готовий результат bas_relief (щоб не рахувати його щоразу, коли рухають інший повзунок)."""
     h = bas_relief(depth, flatten) if base is None else base
     size = max(h.shape)
@@ -142,17 +142,26 @@ def shape_relief(depth: np.ndarray | None, *, floor: float, gamma: float, detail
         h = np.clip((h - floor) / (1.0 - floor), 0.0, 1.0)
     if gamma != 1.0:
         h = h**gamma
+    subject = h  # форма до підсилення: за нею визначаємо, де предмет, а де тло
     if detail > 0:
-        h = h + detail * (h - ndimage.gaussian_filter(h, size * detail_radius))
+        # Підсилюємо лише дрібні нерівності. На великих сходинках (край пелюстки, силует)
+        # звичайне підсилення дало б валик з одного боку й канавку з другого, тому добавку обмежено.
+        fine = h - ndimage.gaussian_filter(h, size * detail_radius)
+        h = h + detail * np.clip(fine, -0.012, 0.012)
         h = np.clip(h, 0.0, None)
         h = h / max(np.percentile(h, 99.9), 1e-9)
     if texture > 0 and gray is not None:
-        # Мікрофактура (шерсть, пір'я, мазки) з яскравості картинки: світле = вище.
-        # Це не справжня геометрія, а імітація, тому підмішуємо потроху.
+        # Мікрофактура (шерсть, пір'я, луска) з яскравості картинки: світле = вище.
+        # Це не справжня геометрія, а імітація, тому підмішуємо потроху і лише на самому
+        # предметі: на тлі (вода, стіна, розмите листя) вона перетворюється на шум.
         g = ndimage.gaussian_filter(gray, 0.8)
         fine = g - ndimage.gaussian_filter(g, size * 0.004)
         fine = np.clip(fine / max(np.percentile(np.abs(fine), 99), 1e-9), -1.0, 1.0)
-        h = h + texture * 0.05 * fine
+        ground = np.percentile(subject, 25)  # рівень тла: нижня чверть висот
+        on_subject = np.clip((ndimage.gaussian_filter(subject, size * 0.004) - ground - 0.08) / 0.15, 0.0, 1.0)
+        h = h + texture * 0.05 * fine * on_subject
+    if smooth > 0:
+        h = ndimage.gaussian_filter(h, smooth * size * 0.003)
     return np.clip(h, 0.0, 1.0)
 
 
@@ -188,7 +197,27 @@ def image_depth(img: Image.Image, model: str = "large", res: int = 1036, fuse_pa
         coarse, fine = estimate_depth(img, model, [518, res])
         depth = fuse(coarse, fine, sigma=max(img.size) * 0.02)
     # Дрібніше за клітинку моделі (14 px) справжньої інформації немає — лише шум сітки.
-    return ndimage.gaussian_filter(depth, 0.3 * 14 * min(img.size) / res)
+    return denoise(ndimage.gaussian_filter(depth, 0.3 * 14 * min(img.size) / res))
+
+
+def denoise(depth: np.ndarray) -> np.ndarray:
+    """Прибирає дрібний шум глибини, не розмиваючи краї предметів.
+
+    На рівному тлі (вода, стіна, небо) нейромережа дає ледь помітну рябь. Після
+    барельєфного стиснення вона стає видимою «шкіркою». Медіана знімає поодинокі
+    викиди, а самокерований фільтр вирівнює площини й пологі схили, лишаючи сходинки.
+    """
+    lo, hi = np.percentile(depth, [0.5, 99.8])
+    span = max(hi - lo, 1e-9)
+    d = (depth - lo) / span
+    size = max(d.shape)
+    d = ndimage.median_filter(d, 2 * min(round(size * 0.003), 4) + 1)
+    r = max(2, round(size * 0.005))
+    box = lambda a: ndimage.uniform_filter(a, 2 * r + 1, mode="nearest")  # noqa: E731
+    mean = box(d)
+    var = np.maximum(box(d * d) - mean * mean, 0.0)
+    a = var / (var + 1e-4)
+    return (box(a) * d + box(mean - a * mean)) * span + lo
 
 
 def main():
@@ -208,6 +237,7 @@ def main():
     ap.add_argument("--detail-radius", type=float, default=0.006, help=_("радіус деталей (частка розміру картинки)"))
     ap.add_argument("--texture", type=float, default=0.5, help=_("0..2: додати мікрофактуру з яскравості картинки (0 = вимкнути)"))
     ap.add_argument("--crop", type=str, default=None, metavar="L,T,R,B", help=_("обрізати картинку (частки 0..1), напр. 0.25,0.2,0.72,0.82"))
+    ap.add_argument("--smooth", type=float, default=0.0, help=_("0..1: згладити готовий рельєф (прибирає шум, але й дрібні деталі)"))
     ap.add_argument("--invert", action="store_true", help=_("інвертувати (далеке стане високим)"))
     ap.add_argument("--max-size", type=int, default=3000, help=_("обмеження довшої сторони карти висот, px"))
     args = ap.parse_args()
@@ -225,7 +255,7 @@ def main():
 
     gray = np.asarray(img.convert("L"), dtype=np.float64) / 255.0
     h = shape_relief(depth, floor=args.floor, gamma=args.gamma, detail=args.detail,
-                     detail_radius=args.detail_radius, flatten=args.flatten, texture=args.texture, gray=gray)
+                     detail_radius=args.detail_radius, flatten=args.flatten, texture=args.texture, gray=gray, smooth=args.smooth)
 
     out = args.out or args.image.with_name(args.image.stem + "_height.png")
     out.parent.mkdir(parents=True, exist_ok=True)

@@ -12,6 +12,7 @@ from __future__ import annotations
 
 import argparse
 import math
+import uuid
 import zipfile
 from dataclasses import dataclass, field, fields
 from pathlib import Path
@@ -526,6 +527,100 @@ def write_3mf(path: Path, parts: list[Part]):
         zf.writestr("3D/3dmodel.model", "".join(chunks))
 
 
+_PROJECT_TYPES = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    '<Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types">'
+    '<Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/>'
+    '<Default Extension="model" ContentType="application/vnd.ms-package.3dmanufacturing-3dmodel+xml"/>'
+    "</Types>"
+)
+_MODEL_HEAD = (
+    '<?xml version="1.0" encoding="UTF-8"?>\n'
+    '<model unit="millimeter" xml:lang="en-US" xmlns="http://schemas.microsoft.com/3dmanufacturing/core/2015/02" '
+    'xmlns:BambuStudio="http://schemas.bambulab.com/package/2021" '
+    'xmlns:p="http://schemas.microsoft.com/3dmanufacturing/production/2015/06" requiredextensions="p">\n'
+)
+
+
+def write_project(path: Path, groups: dict[int, list[Part]], bed: float, names: dict[int, str], config: str, version: str):
+    """Один проєкт Bambu Studio / OrcaStudio з усіма плитами одразу.
+
+    Формат повторює те, що зберігає сам Bambu Studio: кожна деталь — окремий вкладений
+    файл, у головному файлі — посилання на них і положення, а в model_settings.config —
+    перелік плит. Плити слайсер розкладає сіткою з кроком 1,2 розміру столу; саме в ці
+    місця й ставимо деталі.
+    """
+    order = sorted(groups)
+    cols = math.ceil(math.sqrt(len(order)))
+    stride = bed * 1.2
+    files: dict[str, str] = {}
+    wrappers, items, rels, objects_cfg, plates_cfg = [], [], [], [], []
+    oid = 0
+    for index, plate in enumerate(order):
+        row, col = divmod(index, cols)
+        ox, oy = col * stride, -row * stride
+        instances = []
+        for part in groups[plate]:
+            oid += 1
+            mesh_id, wrap_id = 2 * oid - 1, 2 * oid
+            v = part.verts.copy()
+            v[:, :2] += part.offset
+            centre = (v.min(axis=0) + v.max(axis=0)) / 2.0  # слайсер тримає сітку довкола центру об'єкта
+            v -= centre
+            sub = f"3D/Objects/object_{oid}.model"
+            files[sub] = "".join([
+                _MODEL_HEAD,
+                '<metadata name="BambuStudio:3mfVersion">1</metadata>\n<resources>\n',
+                f'<object id="{mesh_id}" p:UUID="{uuid.uuid4()}" type="model"><mesh><vertices>\n',
+                "\n".join(f'<vertex x="{x:.4f}" y="{y:.4f}" z="{z:.4f}"/>' for x, y, z in v.tolist()),
+                "\n</vertices><triangles>\n",
+                "\n".join(f'<triangle v1="{a}" v2="{b}" v3="{c}"/>' for a, b, c in part.tris.tolist()),
+                "\n</triangles></mesh></object>\n</resources>\n</model>\n",
+            ])
+            rels.append(f'<Relationship Target="/{sub}" Id="rel-{oid}" Type="http://schemas.microsoft.com/3dmanufacturing/2013/01/3dmodel"/>')
+            wrappers.append(
+                f'<object id="{wrap_id}" p:UUID="{uuid.uuid4()}" type="model"><components>'
+                f'<component p:path="/{sub}" objectid="{mesh_id}" p:UUID="{uuid.uuid4()}" transform="1 0 0 0 1 0 0 0 1 0 0 0"/>'
+                "</components></object>"
+            )
+            items.append(
+                f'<item objectid="{wrap_id}" p:UUID="{uuid.uuid4()}" '
+                f'transform="1 0 0 0 1 0 0 0 1 {centre[0] + ox:.4f} {centre[1] + oy:.4f} {centre[2]:.4f}" printable="1"/>'
+            )
+            objects_cfg.append(
+                f'  <object id="{wrap_id}">\n    <metadata key="name" value="{part.name}"/>\n    <metadata key="extruder" value="1"/>\n'
+                f'    <part id="{mesh_id}" subtype="normal_part">\n      <metadata key="name" value="{part.name}"/>\n'
+                '      <metadata key="matrix" value="1 0 0 0 0 1 0 0 0 0 1 0 0 0 0 1"/>\n    </part>\n  </object>\n'
+            )
+            instances.append(
+                f'    <model_instance>\n      <metadata key="object_id" value="{wrap_id}"/>\n'
+                f'      <metadata key="instance_id" value="0"/>\n      <metadata key="identify_id" value="{1000 + oid}"/>\n    </model_instance>\n'
+            )
+        plates_cfg.append(
+            f'  <plate>\n    <metadata key="plater_id" value="{index + 1}"/>\n    <metadata key="plater_name" value="{names.get(plate, "")}"/>\n'
+            '    <metadata key="locked" value="false"/>\n' + "".join(instances) + "  </plate>\n"
+        )
+
+    model = "".join([
+        _MODEL_HEAD,
+        f'<metadata name="Application">BambuStudio-{version or "02.00.00.00"}</metadata>\n<metadata name="BambuStudio:3mfVersion">1</metadata>\n',
+        "<resources>\n", "\n".join(wrappers), "\n</resources>\n",
+        f'<build p:UUID="{uuid.uuid4()}">\n', "\n".join(items), "\n</build>\n</model>\n",
+    ])
+    with zipfile.ZipFile(path, "w", zipfile.ZIP_DEFLATED, compresslevel=6) as zf:
+        zf.writestr("[Content_Types].xml", _PROJECT_TYPES)
+        zf.writestr("_rels/.rels", _RELS.replace('Id="rel0"', 'Id="rel-1"'))
+        zf.writestr("3D/3dmodel.model", model)
+        zf.writestr("3D/_rels/3dmodel.model.rels",
+                    '<?xml version="1.0" encoding="UTF-8"?>\n<Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">'
+                    + "".join(rels) + "</Relationships>")
+        for name, text in files.items():
+            zf.writestr(name, text)
+        zf.writestr("Metadata/model_settings.config",
+                    '<?xml version="1.0" encoding="UTF-8"?>\n<config>\n' + "".join(objects_cfg) + "".join(plates_cfg) + "</config>\n")
+        zf.writestr("Metadata/project_settings.config", config)
+
+
 def save_previews(out: Path, relief: Relief | None, pieces: list[Part], plates: dict[int, list[Part]], bed: float):
     import matplotlib
 
@@ -583,7 +678,7 @@ def save_previews(out: Path, relief: Relief | None, pieces: list[Part], plates: 
 
 def _export(out: Path, o: Options, relief: Relief | None, pieces: list[Part], tray: list[Part], previews: bool) -> dict:
     out.mkdir(parents=True, exist_ok=True)
-    for old in out.glob("plate_*.3mf"):
+    for old in list(out.glob("plate_*.3mf")) + list(out.glob("all_plates.3mf")):
         old.unlink()
 
     n_piece_plates = pack(pieces, o.usable, o.gap)
@@ -609,10 +704,27 @@ def _export(out: Path, o: Options, relief: Relief | None, pieces: list[Part], tr
                 "outlines": [np.round(p.outline + p.offset, 2).tolist() for p in group],
             }
         )
+    names, counters = {}, {"pieces": 0, "tray": 0}
+    for entry in plates:
+        counters[entry["kind"]] += 1
+        label = _("Рамка {n}") if entry["kind"] == "tray" else _("Деталі {n}")
+        names[entry["index"] - 1] = label.format(n=counters[entry["kind"]])
+    # Єдиний проєкт з усіма плитами — якщо встановлено Bambu Studio, з якого можна взяти налаштування друку.
+    project = None
+    try:
+        import bambu
+
+        config = bambu.project_settings(o.bed)
+        if config:
+            project = out / "all_plates.3mf"
+            write_project(project, groups, o.bed, names, config, bambu.version())
+    except Exception:  # єдиний проєкт — зручність, а не необхідність: окремі плити вже записано
+        project = None
     if previews:
         save_previews(out, relief, pieces if relief is not None else [], groups, o.bed)
     return {
         "out": str(out.resolve()),
+        "project": str(project.resolve()) if project else None,
         "bed": o.bed,
         "pieces": len(pieces),
         "piece_plates": n_piece_plates,
@@ -711,6 +823,8 @@ def main():
         line += _(" + {n} з рамкою ({k} секц.)").format(n=s["tray_plates"], k=s["tray_parts"])
     print(line)
     print(_("Трикутників: {n} млн").format(n=f"{s['triangles'] / 1e6:.2f}"))
+    if s.get("project"):
+        print(_("Усі плити одним проєктом для Bambu Studio: {path}").format(path=s["project"]))
     print(_("Результат: {path}").format(path=s["out"]))
 
 

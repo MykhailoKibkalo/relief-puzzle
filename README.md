@@ -11,10 +11,11 @@ Turn a picture, a height map or a 3D model into a relief jigsaw puzzle you can 3
 - **Three kinds of input.** A picture (a neural network estimates its depth), a ready height map (white is high), or a relief 3D model (STL, OBJ, PLY, GLB).
 - **Live 3D preview.** Change the width, piece size, relief height or gap and the puzzle redraws at once.
 - **Pieces that fit after printing.** Each piece gets an adjustable gap to its neighbours, rounded corners and a small bottom chamfer against elephant's foot.
-- **Plates for your printer.** Pieces are packed onto as many plates as the bed size requires (180 mm for a Bambu Lab A1 mini by default). Every plate is a separate 3MF file.
+- **Plates for your printer.** Pieces are packed onto as many plates as the bed size requires (180 mm for a Bambu Lab A1 mini by default). Every plate is a separate 3MF file, and with Bambu Studio installed you also get one project that holds all plates at once.
 - **A frame.** An optional tray with a rim. If it is larger than the bed, it is split into sections that join with jigsaw tabs.
 - **A fit test.** Five pairs of pieces with gaps from 0.10 to 0.30 mm, so you can find the right gap for your printer before printing a whole puzzle.
-- **English and Ukrainian** interface.
+- **An example gallery.** Six ready reliefs to try without downloading anything.
+- **English and Ukrainian** interface, including the app name.
 
 ## Examples
 
@@ -37,7 +38,9 @@ The sunflower puzzle and the two halves of its frame, laid out on 180 mm plates:
 
 Bambu Studio estimates the first plate (20 pieces, 0.12 mm layers, 0.4 mm nozzle, A1 mini) at about 3 hours and 42 g of PLA.
 
-The photos and the height maps made from them are in [`examples/`](examples).
+The app has a gallery with these and four more examples. The photos and the height maps made from them are in [`examples/`](examples).
+
+![The example gallery: sunflower, sea turtle, dahlia, lion, pink flower and starfish](docs/gallery-en.jpg)
 
 ## Install
 
@@ -56,17 +59,19 @@ To get an icon you can double-click, run this once:
 uv run python make_app.py
 ```
 
-It creates `Relief Puzzle.app` in the project folder (`Рельєфний пазл.app` if the app language is Ukrainian). You can move the icon to the Dock or to Applications.
+It creates `Relief Puzzle.app` in the project folder (`Рельєфний пазл.app` if the app language is Ukrainian). The icon is renamed when you switch the language, unless it is pinned to the Dock. You can move it to the Dock or to Applications.
 
 The first time you open a picture, the app downloads the depth model from Hugging Face (about 1.3 GB). Height maps and 3D models need no download.
 
 ## Using the app
 
-1. Drop a picture, a height map or a 3D model onto the window, or click **Choose file**. **Try the example** loads the sunflower.
+1. Drop a picture, a height map or a 3D model onto the window, or click **Choose file**. **Example gallery** offers six ready reliefs.
 2. Adjust the relief and the puzzle. Drag the preview to rotate it.
-3. Click **Create print files**. The plates appear at the bottom, each with buttons that open it in Bambu Studio or OrcaStudio if they are installed.
+3. Click **Create print files**. The plates appear at the bottom. **All plates in Bambu Studio** opens one project with every plate; the buttons under each plate open that plate alone.
 
 ![The finished plates with buttons to open each one in a slicer](docs/plates-en.jpg)
+
+The single project uses the printer, process and filament currently selected in your Bambu Studio, so it needs Bambu Studio installed and a printer whose bed matches the bed size set in the app. Without it you still get the separate plate files.
 
 The **Menu** button holds the settings (language, printer bed size, which neural network to use), the version, a link to this page and an update check. If you installed with `git clone`, the app can update itself from there.
 
@@ -90,6 +95,8 @@ uv run python mesh2height.py model.stl -o relief.png    # 3D model → height ma
 uv run python puzzle.py relief.png --width 240 --piece 24 --tray
 uv run python puzzle.py --fit-test                      # fit test only
 ```
+
+`puzzle.py` writes `plate_NN_*.3mf` for every plate and, when Bambu Studio is installed, `all_plates.3mf` with all of them in one project.
 
 The main options of `puzzle.py`:
 
@@ -116,7 +123,7 @@ Run any script with `--help` for the full list. Messages follow the app language
 
 ## How it works
 
-1. **Depth.** Depth Anything V2 runs at two resolutions: the coarse pass gives the overall shape and the fine pass adds detail. Several shifted and mirrored passes are averaged to hide the model's 14-pixel patch grid. Optionally, a little micro-texture is mixed in from the image brightness.
+1. **Depth.** Depth Anything V2 runs at two resolutions: the coarse pass gives the overall shape and the fine pass adds detail. Several shifted and mirrored passes are averaged to hide the model's 14-pixel patch grid, and an edge-preserving filter removes the faint ripple the network leaves on flat backgrounds. Optionally, a little micro-texture is mixed in from the image brightness, on the subject only.
 2. **Bas-relief.** Real depth does not fit into a few millimetres: the step between the subject and the background would use up almost all the height. So steep steps are attenuated, gentle slopes are kept, and the surface is rebuilt from the slopes. The subject's own shape gets most of the height range.
 3. **Solid.** The height map becomes a height-field solid on a 0.2 mm grid.
 4. **Cutting.** The cut lines are classic jigsaw tabs built from cubic Bézier curves. Each piece outline is inset by half the gap, and the piece is the intersection of the height-field solid with the extruded outline, computed with [Manifold](https://github.com/elalish/manifold).
@@ -127,6 +134,7 @@ Run any script with `--help` for the full list. Messages follow the app language
 - Depth estimated from a picture captures shapes down to petals and limbs; finer detail such as fur or feathers comes out soft. The **Surface texture** control imitates it from image brightness, which is not real geometry. Shallow reliefs photographed head-on come out almost flat.
 - The app window, the icon and the slicer buttons are macOS-only. The command-line scripts are plain Python and should run elsewhere, but that is untested.
 - The geometry is checked: every piece is a closed solid, and the plates slice without errors in Bambu Studio 2.8. The default 0.2 mm gap has not been validated on real prints yet, so use the fit test.
+- The single project with all plates is checked with Bambu Studio's command-line slicer, which reads every plate and slices it. Opening it in the Bambu Studio window and in OrcaStudio has not been verified yet.
 
 ## License and credits
 
@@ -136,4 +144,4 @@ The code is released under the [MIT license](LICENSE).
 - **Bundled.** [Three.js](https://threejs.org) (MIT) in `static/vendor/`.
 - **Dependencies.** Manifold, trimesh, pywebview, PyTorch and Transformers, under their own licenses.
 - **Jigsaw tabs.** The tab shape follows the Bézier parametrization known from [Draradech's jigsaw generator](https://github.com/Draradech/jigsaw).
-- **Example photos.** [Sunflower](https://commons.wikimedia.org/wiki/File:Helianthus_annuus_-_Jardin_universitaire_Roger-Van_den_Hende,_Quebec_22.jpg) by Wilfredor and [green sea turtle](https://commons.wikimedia.org/wiki/File:Chelonia_mydas_176499106.jpg) by Zygy, both released under CC0 on Wikimedia Commons.
+- **Example photos.** All released under CC0 on Wikimedia Commons: [sunflower](https://commons.wikimedia.org/wiki/File:Helianthus_annuus_-_Jardin_universitaire_Roger-Van_den_Hende,_Quebec_22.jpg) by Wilfredor, [sea turtle](https://commons.wikimedia.org/wiki/File:Chelonia_mydas_176499106.jpg) by Zygy, [dahlia](https://commons.wikimedia.org/wiki/File:White_dahlia_flower_in_bowl,_Mittelheim.jpg) by Gerda Arendt, [lion](https://commons.wikimedia.org/wiki/File:Head_lion_Florence.jpg) by Jebulon, [pink flower](https://commons.wikimedia.org/wiki/File:Pink_flower_in_close-up_(Unsplash).jpg) by Caleb Woods, [starfish](https://commons.wikimedia.org/wiki/File:Asterias_rubens_(USNM_E39586)_001.jpeg) by Katie Ahlfeld.
